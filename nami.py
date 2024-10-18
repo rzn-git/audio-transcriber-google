@@ -27,21 +27,42 @@ def transcribe_audio(audio_file):
     temp_wav = "temp.wav"
     audio.export(temp_wav, format="wav")
     
+    transcription = ""
+    
     try:
-        # Recognize speech using Google Speech Recognition
         with sr.AudioFile(temp_wav) as source:
-            audio_data = recognizer.record(source)
-            # Transcribing the audio to text
-            text = recognizer.recognize_google(audio_data)
-            return text
-    except sr.UnknownValueError:
-        return "Audio not understood"
-    except sr.RequestError as e:
-        return f"Could not request results; {e}"
+            # Split the audio into smaller segments (e.g., 30 seconds) with overlap
+            duration = len(audio)  # Total duration in milliseconds
+            segment_length = 30 * 1000  # 30 seconds in milliseconds
+            overlap_length = 5 * 1000   # 5 seconds of overlap
+
+            for start_time in range(0, duration, segment_length - overlap_length):
+                end_time = min(start_time + segment_length, duration)
+                audio_segment = audio[start_time:end_time]
+                
+                # Export the segment to a temporary WAV file
+                segment_temp_wav = "segment_temp.wav"
+                audio_segment.export(segment_temp_wav, format="wav")
+                
+                with sr.AudioFile(segment_temp_wav) as segment_source:
+                    audio_data = recognizer.record(segment_source)
+                    # Transcribing the audio to text
+                    try:
+                        text = recognizer.recognize_google(audio_data)
+                        transcription += text + " "  # Append the transcription
+                    except sr.UnknownValueError:
+                        transcription += "[Audio not understood] "
+                    except sr.RequestError as e:
+                        return f"Could not request results; {e}"
+
     finally:
-        # Clean up the temporary file
+        # Clean up temporary files
         if os.path.exists(temp_wav):
-            os.remove(temp_wav)  # Delete the temporary file
+            os.remove(temp_wav)  # Delete the original temp file
+        if os.path.exists(segment_temp_wav):
+            os.remove(segment_temp_wav)  # Delete the segment temp file
+
+    return transcription.strip()  # Return the complete transcription
 
 # Streamlit UI
 st.title("Audio Transcription App")
