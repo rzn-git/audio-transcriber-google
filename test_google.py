@@ -1,3 +1,5 @@
+# got this code from google api page 
+
 import os
 
 from google.cloud.speech_v2 import SpeechClient
